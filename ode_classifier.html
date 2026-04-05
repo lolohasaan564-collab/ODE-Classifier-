@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>ODE Classifier</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=JetBrains+Mono:wght@300;400;500&family=Crimson+Pro:ital,wght@0,300;0,400;1,300&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg:       #0a0c10;
+    --surface:  #111318;
+    --border:   #1e2330;
+    --accent:   #c8a96e;
+    --accent2:  #6e9ec8;
+    --green:    #4caf82;
+    --red:      #c86e6e;
+    --text:     #d4cfc7;
+    --muted:    #6b6860;
+    --glow:     rgba(200,169,110,0.12);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Crimson Pro', Georgia, serif;
+    font-size: 17px;
+    line-height: 1.7;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── grid background ── */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(var(--border) 1px, transparent 1px),
+      linear-gradient(90deg, var(--border) 1px, transparent 1px);
+    background-size: 40px 40px;
+    opacity: 0.4;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .wrapper {
+    position: relative;
+    z-index: 1;
+    max-width: 780px;
+    margin: 0 auto;
+    padding: 60px 24px 100px;
+  }
+
+  /* ── header ── */
+  header {
+    text-align: center;
+    margin-bottom: 56px;
+  }
+
+  .eyebrow {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 300;
+    letter-spacing: 0.3em;
+    color: var(--accent);
+    text-transform: uppercase;
+    margin-bottom: 16px;
+    opacity: 0;
+    animation: fadeUp 0.6s 0.1s forwards;
+  }
+
+  h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(2.4rem, 7vw, 4rem);
+    font-weight: 900;
+    line-height: 1.1;
+    color: #f0ebe2;
+    letter-spacing: -0.02em;
+    opacity: 0;
+    animation: fadeUp 0.7s 0.2s forwards;
+  }
+
+  h1 span {
+    color: var(--accent);
+    font-style: italic;
+  }
+
+  .subtitle {
+    margin-top: 14px;
+    font-size: 1rem;
+    color: var(--muted);
+    font-style: italic;
+    opacity: 0;
+    animation: fadeUp 0.7s 0.35s forwards;
+  }
+
+  /* ── divider ── */
+  .divider {
+    width: 60px;
+    height: 1px;
+    background: var(--accent);
+    margin: 28px auto;
+    opacity: 0;
+    animation: fadeUp 0.6s 0.4s forwards;
+  }
+
+  /* ── tabs ── */
+  .tabs {
+    display: flex;
+    gap: 0;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+    margin-bottom: 28px;
+    opacity: 0;
+    animation: fadeUp 0.6s 0.45s forwards;
+  }
+
+  .tab {
+    flex: 1;
+    padding: 11px 16px;
+    background: var(--surface);
+    border: none;
+    color: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+    border-right: 1px solid var(--border);
+    text-align: center;
+  }
+  .tab:last-child { border-right: none; }
+  .tab:hover { color: var(--text); background: #161920; }
+  .tab.active {
+    background: var(--accent);
+    color: #1a1400;
+    font-weight: 500;
+  }
+
+  /* ── input card ── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 28px;
+    margin-bottom: 20px;
+    opacity: 0;
+    animation: fadeUp 0.7s 0.5s forwards;
+  }
+
+  .card-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    color: var(--accent);
+    text-transform: uppercase;
+    margin-bottom: 14px;
+  }
+
+  .examples {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+
+  .example-btn {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    padding: 5px 12px;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .example-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .input-row {
+    display: flex;
+    gap: 10px;
+    align-items: stretch;
+  }
+
+  textarea, input[type="text"] {
+    flex: 1;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 14px 16px;
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    resize: none;
+    height: 52px;
+    line-height: 1.4;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    outline: none;
+  }
+  textarea:focus, input[type="text"]:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--glow);
+  }
+
+  .classify-btn {
+    padding: 0 24px;
+    background: var(--accent);
+    border: none;
+    border-radius: 6px;
+    color: #1a1400;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+  .classify-btn:hover { background: #d4b87a; transform: translateY(-1px); }
+  .classify-btn:active { transform: translateY(0); }
+  .classify-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+  /* ── hint text ── */
+  .hint {
+    margin-top: 10px;
+    font-size: 13px;
+    color: var(--muted);
+    font-style: italic;
+  }
+  .hint code {
+    font-family: 'JetBrains Mono', monospace;
+    font-style: normal;
+    font-size: 12px;
+    color: var(--accent2);
+    background: rgba(110,158,200,0.08);
+    padding: 1px 5px;
+    border-radius: 3px;
+  }
+
+  /* ── result panel ── */
+  #result {
+    opacity: 0;
+    transform: translateY(8px);
+    transition: all 0.4s ease;
+    pointer-events: none;
+  }
+  #result.visible {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+  }
+
+  .result-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  .result-header {
+    padding: 14px 22px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .result-header .dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--accent);
+    animation: pulse 2s infinite;
+  }
+
+  .result-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .result-body {
+    padding: 22px;
+  }
+
+  /* classification badges row */
+  .badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 22px;
+  }
+
+  .badge {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 16px;
+    min-width: 140px;
+  }
+  .badge-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .badge-value {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: #f0ebe2;
+  }
+  .badge.exact .badge-value   { color: var(--green); }
+  .badge.nonexact .badge-value { color: var(--red); }
+  .badge.first   { border-color: rgba(110,158,200,0.35); }
+  .badge.second  { border-color: rgba(200,110,110,0.35); }
+
+  /* partials display */
+  .partials {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 18px;
+    margin-bottom: 18px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    line-height: 2;
+  }
+  .partial-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .partial-label { color: var(--muted); min-width: 80px; }
+  .partial-val   { color: var(--accent2); }
+  .partial-check { font-size: 16px; }
+
+  /* explanation text */
+  .explanation {
+    font-size: 15px;
+    color: var(--text);
+    line-height: 1.8;
+    border-left: 2px solid var(--accent);
+    padding-left: 14px;
+    font-style: italic;
+  }
+
+  /* loading */
+  .loading-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 20px 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .spinner {
+    width: 16px; height: 16px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+  }
+
+  /* error */
+  .error-msg {
+    background: rgba(200,110,110,0.08);
+    border: 1px solid rgba(200,110,110,0.3);
+    border-radius: 8px;
+    padding: 14px 18px;
+    color: var(--red);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+  }
+
+  /* ── footer ── */
+  footer {
+    text-align: center;
+    margin-top: 64px;
+    font-size: 13px;
+    color: var(--muted);
+    font-style: italic;
+  }
+
+  /* ── animations ── */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(14px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+  @keyframes pulse {
+    0%,100% { opacity: 1; } 50% { opacity: 0.3; }
+  }
+</style>
+</head>
+<body>
+<div class="wrapper">
+
+  <header>
+    <p class="eyebrow">Differential Equations</p>
+    <h1>ODE <span>Classifier</span></h1>
+    <p class="subtitle">Identify the type and exactness of ordinary differential equations</p>
+    <div class="divider"></div>
+  </header>
+
+  <!-- tabs -->
+  <div class="tabs" id="tabs">
+    <button class="tab active" data-mode="dydx">dy/dx form</button>
+    <button class="tab" data-mode="exact">M dx + N dy = 0</button>
+  </div>
+
+  <!-- input card -->
+  <div class="card">
+    <div class="card-label">Enter Equation</div>
+
+    <!-- examples -->
+    <div class="examples" id="examples"></div>
+
+    <div class="input-row">
+      <input type="text" id="eq-input" placeholder="dy/dx + 2*y = x^2" autocomplete="off" spellcheck="false"/>
+      <button class="classify-btn" id="classify-btn" onclick="classify()">Classify →</button>
+    </div>
+    <p class="hint" id="hint-text"></p>
+  </div>
+
+  <!-- result -->
+  <div id="result">
+    <div class="result-card">
+      <div class="result-header">
+        <div class="dot"></div>
+        <span class="result-title">Classification Result</span>
+      </div>
+      <div class="result-body" id="result-body"></div>
+    </div>
+  </div>
+
+  <footer>
+    Powered by Claude · Symbolic analysis of ODEs
+  </footer>
+</div>
+
+<script>
+// ── mode & examples ───────────────────────────────────────────────────────────
+const MODES = {
+  dydx: {
+    placeholder: "dy/dx + 2*y = x^2",
+    hint: "Use <code>dy/dx</code> for derivative, <code>^</code> for powers, <code>*</code> for multiplication",
+    examples: [
+      { label: "dy/dx + 2y = x²",  val: "dy/dx + 2*y = x^2" },
+      { label: "dy/dx = x/y",       val: "dy/dx = x/y" },
+      { label: "dy/dx = y² - xy",   val: "dy/dx = y^2 - x*y" },
+      { label: "dy/dx + y = y²",    val: "dy/dx + y = y^2" },
+      { label: "d²y/dx²+ y = 0",   val: "d2y/dx2 + y = 0" },
+    ]
+  },
+  exact: {
+    placeholder: "(2*x*y)*dx + (x^2 + y^2)*dy = 0",
+    hint: "Write as <code>M(x,y)*dx + N(x,y)*dy = 0</code>. Use <code>^</code> for powers.",
+    examples: [
+      { label: "2xy dx+(x²+y²)dy=0", val: "(2*x*y)*dx + (x^2+y^2)*dy = 0" },
+      { label: "y dx + x dy = 0",     val: "y*dx + x*dy = 0" },
+      { label: "y² dx + x dy = 0",    val: "y^2*dx + x*dy = 0" },
+      { label: "e^x dx + (e^x+2y)dy", val: "exp(x)*dx + (exp(x)+2*y)*dy = 0" },
+    ]
+  }
+};
+
+let currentMode = 'dydx';
+
+// build tabs & examples
+document.querySelectorAll('.tab').forEach(t => {
+  t.addEventListener('click', () => {
+    currentMode = t.dataset.mode;
+    document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+    t.classList.add('active');
+    updateMode();
+    hideResult();
+  });
+});
+
+function updateMode() {
+  const m = MODES[currentMode];
+  document.getElementById('eq-input').placeholder = m.placeholder;
+  document.getElementById('hint-text').innerHTML = m.hint;
+  const ex = document.getElementById('examples');
+  ex.innerHTML = '';
+  m.examples.forEach(e => {
+    const b = document.createElement('button');
+    b.className = 'example-btn';
+    b.textContent = e.label;
+    b.onclick = () => {
+      document.getElementById('eq-input').value = e.val;
+      document.getElementById('eq-input').focus();
+    };
+    ex.appendChild(b);
+  });
+}
+updateMode();
+
+// enter key
+document.getElementById('eq-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') classify();
+});
+
+// ── UI helpers ────────────────────────────────────────────────────────────────
+function showLoading() {
+  const r = document.getElementById('result');
+  r.classList.add('visible');
+  document.getElementById('result-body').innerHTML = `
+    <div class="loading-row">
+      <div class="spinner"></div>
+      <span>Analysing equation…</span>
+    </div>`;
+}
+
+function hideResult() {
+  document.getElementById('result').classList.remove('visible');
+}
+
+function showError(msg) {
+  document.getElementById('result-body').innerHTML =
+    `<div class="error-msg">⚠ ${msg}</div>`;
+}
+
+function showResult(data) {
+  // data: { order, type, exact, My, Nx, M, N, explanation }
+  let html = '<div class="badges">';
+
+  // order badge
+  const orderClass = data.order && data.order.includes('Second') ? 'second' : 'first';
+  html += `<div class="badge ${orderClass}">
+    <span class="badge-label">Order</span>
+    <span class="badge-value">${escHtml(data.order || '—')}</span>
+  </div>`;
+
+  // type badge (only for dy/dx mode)
+  if (data.type) {
+    html += `<div class="badge">
+      <span class="badge-label">Type</span>
+      <span class="badge-value">${escHtml(data.type)}</span>
+    </div>`;
+  }
+
+  // exact badge
+  if (data.exact !== undefined && data.exact !== null) {
+    const isExact = data.exact === true || data.exact === 'Exact';
+    html += `<div class="badge ${isExact ? 'exact' : 'nonexact'}">
+      <span class="badge-label">Exactness</span>
+      <span class="badge-value">${isExact ? '✓ Exact' : '✗ Non-Exact'}</span>
+    </div>`;
+  }
+  html += '</div>';
+
+  // partials
+  if (data.My !== undefined && data.Nx !== undefined) {
+    const match = data.My === data.Nx ||
+      (data.exact === true || data.exact === 'Exact');
+    html += `<div class="partials">`;
+    if (data.M) html += `<div class="partial-row"><span class="partial-label">M(x,y) =</span><span class="partial-val">${escHtml(data.M)}</span></div>`;
+    if (data.N) html += `<div class="partial-row"><span class="partial-label">N(x,y) =</span><span class="partial-val">${escHtml(data.N)}</span></div>`;
+    html += `<div style="height:8px"></div>`;
+    html += `<div class="partial-row"><span class="partial-label">∂M/∂y =</span><span class="partial-val">${escHtml(String(data.My))}</span></div>`;
+    html += `<div class="partial-row"><span class="partial-label">∂N/∂x =</span><span class="partial-val">${escHtml(String(data.Nx))}</span>
+      <span class="partial-check">${match ? '✓' : '✗'}</span></div>`;
+    html += '</div>';
+  }
+
+  // explanation
+  if (data.explanation) {
+    html += `<div class="explanation">${escHtml(data.explanation)}</div>`;
+  }
+
+  document.getElementById('result-body').innerHTML = html;
+}
+
+function escHtml(s) {
+  return String(s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── classify ──────────────────────────────────────────────────────────────────
+async function classify() {
+  const eq = document.getElementById('eq-input').value.trim();
+  if (!eq) return;
+
+  const btn = document.getElementById('classify-btn');
+  btn.disabled = true;
+  showLoading();
+
+  const isExactForm = currentMode === 'exact';
+
+  const systemPrompt = `You are an ODE classifier. Analyse the given ordinary differential equation and return ONLY a JSON object — no markdown, no backticks, no explanation outside JSON.
+
+For dy/dx form equations return:
+{
+  "order": "First Order" | "Second Order" | "Not a differential equation",
+  "type": "Linear" | "Separable" | "Bernoulli (n=...)" | "Non-Linear / Special Form",
+  "explanation": "one sentence reason"
+}
+
+For M dx + N dy = 0 form equations return:
+{
+  "order": "First Order",
+  "M": "the M expression as string",
+  "N": "the N expression as string",
+  "My": "∂M/∂y result as string",
+  "Nx": "∂N/∂x result as string",
+  "exact": true | false,
+  "explanation": "one sentence reason citing the partial derivatives"
+}
+
+Rules:
+- Use standard math notation for expressions (e.g. 2*x*y, x**2 + y**2)
+- Be precise with partial derivatives
+- Return raw JSON only, no surrounding text`;
+
+  const userMsg = isExactForm
+    ? `Classify this ODE in M dx + N dy = 0 form: ${eq}`
+    : `Classify this ODE: ${eq}`;
+
+  try {
+    const resp = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 1000,
+        system: systemPrompt,
+        messages: [{ role: "user", content: userMsg }]
+      })
+    });
+
+    const data = await resp.json();
+    const raw = data.content.map(c => c.text || '').join('').trim();
+
+    // strip any accidental markdown fences
+    const clean = raw.replace(/^```[a-z]*\n?/,'').replace(/```$/,'').trim();
+    const parsed = JSON.parse(clean);
+    showResult(parsed);
+  } catch (err) {
+    showError("Could not classify equation. Check your input or try again.");
+    console.error(err);
+  } finally {
+    btn.disabled = false;
+  }
+}
+</script>
+</body>
+</html>
